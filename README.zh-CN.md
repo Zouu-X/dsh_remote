@@ -47,7 +47,7 @@ DeepSeek Harness Web  127.0.0.1:3080  （仅 loopback）
 - Harness 的 `--trusted-host` 只用于可达性/来源保护，不当作身份认证。
 - 从不信任客户端提交的身份 header。来源 IP 来自 Tailscale Serve 的 PROXY protocol，再通过 `tailscale status --json` 解析成设备身份。
 - Remote Host 只代理固定白名单中的 RPC 方法；`settings.*`、`credentials.*`、目录/文件选择器、Preset 修改等高权限 loopback 方法永远返回 `forbidden`。
-- 设备私钥保存在 macOS Keychain。本项目从不读取、记录或迁移 DeepSeek API Key，它继续保留在 Harness 自己的凭据文件中。
+- 设备私钥保存在 macOS Keychain。本项目从不读取、记录或移动 DeepSeek API Key，它继续保留在 Harness 自己的凭据文件中。
 - 当前版本**不包含**设备吊销、二维码配对、云中继和推送通知。请自行保护好你的 tailnet。
 
 ## 环境要求
@@ -270,7 +270,7 @@ node tools/remote-host-check/check.mjs --base https://<你的-Mac>.<你的-tailn
 
 - 单用户 tailnet 模型。还没有账号系统、设备吊销界面、二维码配对、云中继或推送通知。
 - 主要在 iOS 上验证过。Android 应可通过 PWA 使用，但尚未完成完整的真机 QA。
-- DeepSeek Harness 仍处于早期阶段，其网络接口可能变化；所有 DeepSeek Harness 调用都隔离在 `packages/adapter-deepseek`。
+- DeepSeek Harness 仍是早期产品，其网络接口可能变化；所有 DeepSeek Harness 调用都隔离在 `packages/adapter-deepseek`。
 - 当前版本不会替代 DeepSeek Harness 中已配置的 Agent sandbox 和审批策略。
 
 ## 许可证
