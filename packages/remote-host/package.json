@@ -1,0 +1,35 @@
+{
+  "name": "@dsh-remote/remote-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "dsh-remote-host": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@dsh-remote/adapter-deepseek": "workspace:*",
+    "@dsh-remote/auth-core": "workspace:*",
+    "@dsh-remote/domain": "workspace:*",
+    "@dsh-remote/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  },
+  "license": "MIT"
+}

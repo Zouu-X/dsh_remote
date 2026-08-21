@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.dshbox.remote-host</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>exec __REPO_ROOT__/macos/launch-agent/run-remote-host.sh</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>DSH_REMOTE_HARNESS_URL</key>
+    <string>__HARNESS_URL__</string>
+    <key>DSH_REMOTE_HARNESS_POLL_SECONDS</key>
+    <string>__HARNESS_POLL_SECONDS__</string>
+    <key>DSH_REMOTE_PORT</key>
+    <string>__REMOTE_PORT__</string>
+    <key>DSH_REMOTE_STATIC_DIR</key>
+    <string>__STATIC_DIR__</string>
+    <key>DSH_REMOTE_STATE_FILE</key>
+    <string>__STATE_FILE__</string>
+    <key>DSH_REMOTE_CAFFEINATE</key>
+    <string>__CAFFEINATE__</string>
+    <key>DSH_REMOTE_IDENTITY_PROVIDER</key>
+    <string>__IDENTITY_PROVIDER__</string>
+    <key>DSH_REMOTE_ALLOWED_DEVICE_IDS</key>
+    <string>__ALLOWED_DEVICE_IDS__</string>
+    <key>DSH_REMOTE_SECRET_STORE</key>
+    <string>__SECRET_STORE__</string>
+    <key>DSH_REMOTE_NODE</key>
+    <string>__NODE_BIN__</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/.dsh-remote/logs/remote-host.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/.dsh-remote/logs/remote-host.err.log</string>
+
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+</dict>
+</plist>

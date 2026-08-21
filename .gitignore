@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Node / frontend build outputs
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local environment and secrets: never commit credentials, keys or tokens.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+.credentials.yaml
+credentials.yaml
+macos/launch-agent/launch-agent.env
+
+# Runtime scratch and logs
+spikes/a0/.tmp/
+*.log
+
+# pnpm store (localized under the project)
+.pnpm-store/

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.dshbox.harness</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>exec __REPO_ROOT__/macos/launch-agent/supervise-harness.sh</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>DSH_REMOTE_NODE</key>
+    <string>__NODE_BIN__</string>
+    <key>DSH_REMOTE_HARNESS_PORT</key>
+    <string>3080</string>
+    <key>DSH_REMOTE_TRUSTED_HOST</key>
+    <string>__TRUSTED_HOST__</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/.dsh-remote/logs/harness-supervisor.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/.dsh-remote/logs/harness-supervisor.err.log</string>
+
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+</dict>
+</plist>

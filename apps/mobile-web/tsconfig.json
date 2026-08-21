@@ -1,0 +1,33 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": [
+      "vite/client"
+    ],
+    "paths": {
+      "@dsh-remote/client": [
+        "../../packages/remote-client/src/index.ts"
+      ],
+      "@dsh-remote/domain": [
+        "../../packages/remote-domain/src/index.ts"
+      ],
+      "@dsh-remote/protocol": [
+        "../../packages/remote-protocol/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
+}
