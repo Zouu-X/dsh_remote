@@ -54,16 +54,50 @@ DeepSeek Harness Web  127.0.0.1:3080  （仅 loopback）
 
 - macOS（项目使用了 LaunchAgent、Keychain 和 `caffeinate`）
 - Node.js 24+ 和 pnpm 11（通常执行 `corepack enable` 即可）
-- 已安装并登录 Tailscale，且启用 MagicDNS
 - 已配置 DeepSeek API 凭据的 DeepSeek Harness（见 [DeepSeek Harness 仓库](https://github.com/deepseek-ai/deepseek-harness)）。DSH Remote 不接触该凭据
+- **Mac 和手机都必须安装 Tailscale、登录到同一 tailnet，并启用 MagicDNS。** 这是必须项：手机只通过你的私有 Tailscale 网络连接，不会经过公网。
 - 安装了 Tailscale 并登录到同一 tailnet 的手机
 
-## 快速开始
+## 一键安装（推荐）
+
+### 1. 安装并登录 Tailscale
+
+在 Mac 上：
+
+```bash
+brew install --cask tailscale
+open -a Tailscale
+tailscale up
+```
+
+如果安装后找不到 `tailscale` 命令，请打开 Tailscale 应用并从菜单栏图标登录。
+
+在手机上，从 App Store / Play Store 安装 Tailscale，并用同一账号登录。
+
+在 [Tailscale 管理控制台](https://login.tailscale.com/admin/dns)中，确保你的 tailnet 已启用 **MagicDNS**。
+
+### 2. 克隆仓库并运行一键安装脚本
+
+```bash
+git clone https://github.com/Zouu-X/dsh_remote.git dsh-remote
+cd dsh-remote
+./macos/launch-agent/setup.sh
+```
+
+脚本会检查/安装依赖、协助登录 Tailscale、安装 Node 依赖、构建 PWA、安装 LaunchAgent、启动可选的 Harness 监督器、配置 Tailscale Serve，并打印手机访问地址。
+
+### 3. 在手机上打开应用
+
+在手机上打开脚本打印的 `https://<你的-Mac>.<你的-tailnet>.ts.net`，并添加到主屏幕。
+
+---
+
+## 手动快速开始
 
 ### 1. 安装依赖并构建
 
 ```bash
-git clone <your-repo-url> dsh-remote
+git clone https://github.com/Zouu-X/dsh_remote.git dsh-remote
 cd dsh-remote
 corepack pnpm install
 corepack pnpm -r build
@@ -158,7 +192,7 @@ macos/launch-agent/devices.sh allow-all
 | `DSH_REMOTE_CAFFEINATE` | 安装后的 LaunchAgent 默认为 `auto`（手动 CLI 启动默认为 `off`） | `auto` 表示仅在有 Session 运行时防止 Mac 睡眠 |
 | `DSH_REMOTE_TRUSTED_HOST` | 自动检测 | 传给可选 Harness 监督器的 MagicDNS 名称 |
 | `DSH_REMOTE_HARNESS_POLL_SECONDS` | `15` | LaunchAgent 检查 Harness 是否可用的间隔 |
-| `DSH_INSTALL_HARNESS_SUPERVISOR` | `0` | 设为 `1` 时安装可选的 Harness 监督器 |
+| `DSH_INSTALL_HARNESS_SUPERVISOR` | `install.sh` 默认为 `0`，`setup.sh` 默认为 `1` | 设为 `1` 时安装可选的 Harness 监督器 |
 | `DSH_REMOTE_NODE` | 安装时的 `node` 路径 | LaunchAgent 使用的 Node 可执行文件 |
 
 Remote Host CLI 也接受同名的命令行参数：
@@ -188,7 +222,7 @@ DSH_INSTALL_HARNESS_SUPERVISOR=1 macos/launch-agent/install.sh
 | `packages/remote-host` | Loopback Remote Host HTTP/WebSocket 服务 |
 | `packages/auth-core` | `RemotePrincipal`、能力与 RPC 白名单 |
 | `packages/adapter-deepseek` | 唯一与 DeepSeek Harness 通信的包 |
-| `macos/launch-agent` | LaunchAgent 模板、安装器、设备管理、Tailscale Serve 助手 |
+| `macos/launch-agent` | 一键安装、LaunchAgent 模板、安装器、设备管理、Tailscale Serve 助手 |
 | `spikes/` | A0/A1 连通性与 smoke 测试工具 |
 
 ## Remote API 边界

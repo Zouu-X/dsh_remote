@@ -54,16 +54,50 @@ Workspaces / Agent loop / Shell / Files
 
 - macOS (this project uses LaunchAgents, Keychain, and `caffeinate`)
 - Node.js 24+ and pnpm 11 (`corepack enable` is usually enough)
-- Tailscale installed and signed in, with MagicDNS enabled
 - DeepSeek Harness with your DeepSeek API credential configured (see the [DeepSeek Harness repository](https://github.com/deepseek-ai/deepseek-harness)). DSH Remote never touches that credential.
+- **Tailscale on both the Mac and the phone, signed in to the same tailnet, with MagicDNS enabled.** This is mandatory: the phone connects through your private Tailscale network, never through the public internet.
 - A phone with Tailscale installed and signed in to the same tailnet
 
-## Quick start
+## One-command setup (recommended)
+
+### 1. Install and sign in to Tailscale
+
+On your Mac:
+
+```bash
+brew install --cask tailscale
+open -a Tailscale
+tailscale up
+```
+
+If the `tailscale` command is not available after installation, open the Tailscale app and sign in from its menu bar icon.
+
+On your phone, install Tailscale from the App Store / Play Store and sign in to the same account.
+
+In the [Tailscale admin console](https://login.tailscale.com/admin/dns), make sure **MagicDNS** is enabled for your tailnet.
+
+### 2. Clone and run the setup script
+
+```bash
+git clone https://github.com/Zouu-X/dsh_remote.git dsh-remote
+cd dsh-remote
+./macos/launch-agent/setup.sh
+```
+
+The script checks/installs prerequisites, signs in Tailscale, installs dependencies, builds the PWA, installs the LaunchAgent, starts the optional Harness supervisor, configures Tailscale Serve, and prints your phone URL.
+
+### 3. Open the app on your phone
+
+Open the printed `https://<your-mac>.<your-tailnet>.ts.net` URL on your phone and add it to the home screen.
+
+---
+
+## Manual quick start
 
 ### 1. Install dependencies and build
 
 ```bash
-git clone <your-repo-url> dsh-remote
+git clone https://github.com/Zouu-X/dsh_remote.git dsh-remote
 cd dsh-remote
 corepack pnpm install
 corepack pnpm -r build
@@ -158,7 +192,7 @@ Changes are applied by restarting the LaunchAgent automatically.
 | `DSH_REMOTE_CAFFEINATE` | `auto` in the installed LaunchAgent (`off` for a manual CLI start) | `auto` keeps the Mac awake only while sessions are running |
 | `DSH_REMOTE_TRUSTED_HOST` | auto-detected | MagicDNS name passed to the optional Harness supervisor |
 | `DSH_REMOTE_HARNESS_POLL_SECONDS` | `15` | How often the LaunchAgent checks Harness availability |
-| `DSH_INSTALL_HARNESS_SUPERVISOR` | `0` | Set to `1` to install the optional Harness supervisor |
+| `DSH_INSTALL_HARNESS_SUPERVISOR` | `0` for `install.sh`, `1` for `setup.sh` | Set to `1` to install the optional Harness supervisor |
 | `DSH_REMOTE_NODE` | install-time `node` path | Node binary used by the LaunchAgent |
 
 The Remote Host CLI accepts the same values as flags:
@@ -188,7 +222,7 @@ The supervisor starts `dsh web` only when nothing is already listening on `127.0
 | `packages/remote-host` | Loopback Remote Host HTTP/WebSocket server |
 | `packages/auth-core` | `RemotePrincipal`, capabilities, and RPC allowlist |
 | `packages/adapter-deepseek` | The only package that talks to DeepSeek Harness |
-| `macos/launch-agent` | LaunchAgent templates, installer, device manager, Tailscale Serve helper |
+| `macos/launch-agent` | One-command setup, LaunchAgent templates, installer, device manager, Tailscale Serve helper |
 | `spikes/` | A0/A1 connectivity and smoke-test tools |
 
 ## Remote API boundary
