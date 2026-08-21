@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * A1 smoke test for the Remote Host Adapter through Tailscale Serve.
+ * Self-check for the Remote Host Adapter through Tailscale Serve.
  *
- *   node spikes/a1/smoke.mjs [--base http://127.0.0.1:3090]
+ *   node tools/remote-host-check/check.mjs [--base http://127.0.0.1:3090]
  */
 
 import { randomUUID } from 'node:crypto'
@@ -104,5 +104,5 @@ await check('normalized event stream emits v1 envelopes', async () => {
 })
 
 console.log('')
-console.log(`${checks.filter(item => item.ok).length}/${checks.length} A1 smoke checks passed`)
+console.log(`${checks.filter(item => item.ok).length}/${checks.length} Remote Host self-checks passed`)
 process.exit(exitCode)

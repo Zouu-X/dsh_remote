@@ -4,7 +4,7 @@ Control a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) ag
 
 > **Independent community project.** DSH Remote is not affiliated with or endorsed by DeepSeek.
 >
-> **Status:** A1 single-user developer preview. It is functional on your own Mac, but it is not a multi-user SaaS product.
+> **Status:** early single-user release. It is functional on your own Mac, but it is not a multi-user SaaS product.
 
 [中文说明](README.zh-CN.md)
 
@@ -48,7 +48,7 @@ Workspaces / Agent loop / Shell / Files
 - Client-supplied identity headers are never trusted. The source IP is taken from Tailscale Serve's PROXY protocol line and resolved through `tailscale status --json`.
 - Only a fixed set of remote RPC methods is proxied. Privileged loopback-only methods (`settings.*`, `credentials.*`, file/directory pickers, preset mutations) always return `forbidden`.
 - Device private keys are stored in the macOS Keychain. The DeepSeek API key is never read, logged, or moved by this project; it stays in Harness' own credential file.
-- Device revocation, QR pairing, cloud relay, and push notifications are **not** part of this preview. Protect your tailnet accordingly.
+- Device revocation, QR pairing, cloud relay, and push notifications are **not** part of this release. Protect your tailnet accordingly.
 
 ## Prerequisites
 
@@ -168,7 +168,7 @@ Add it to the home screen to use it as a PWA.
 
 ## Device allowlist
 
-By default every device signed in to your tailnet can reach the Remote Host. For a tighter A1 setup, allow only your phone:
+By default every device signed in to your tailnet can reach the Remote Host. For a stricter setup, allow only your phone:
 
 ```bash
 # Find the phone's Tailscale node ID.
@@ -233,7 +233,7 @@ The supervisor starts `dsh web` only when nothing is already listening on `127.0
 | `packages/auth-core` | `RemotePrincipal`, capabilities, and RPC allowlist |
 | `packages/adapter-deepseek` | The only package that talks to DeepSeek Harness |
 | `macos/launch-agent` | One-command setup, LaunchAgent templates, installer, device manager, Tailscale Serve helper |
-| `spikes/` | A0/A1 connectivity and smoke-test tools |
+| `tools/` | Connectivity tests and Remote Host self-checks |
 
 ## Remote API boundary
 
@@ -256,22 +256,22 @@ corepack pnpm dev:mobile
 corepack pnpm dev:host
 ```
 
-Smoke tests:
+Connectivity tests:
 
 ```bash
 # Remote Host locally, after `pnpm -r build`
-node spikes/a1/smoke.mjs --base http://127.0.0.1:3090
+node tools/remote-host-check/check.mjs --base http://127.0.0.1:3090
 
 # Remote Host through Tailscale Serve
-node spikes/a1/smoke.mjs --base https://<your-mac>.<your-tailnet>.ts.net
+node tools/remote-host-check/check.mjs --base https://<your-mac>.<your-tailnet>.ts.net
 ```
 
 ## Known limitations
 
 - Single-user tailnet model. There is no account system, device revocation UI, QR pairing, cloud relay, or push notification yet.
 - Primarily validated on iOS. Android should work through the PWA but has not gone through full device QA.
-- DeepSeek Harness is a developer preview and may change its wire protocol; all upstream dependencies are isolated in `packages/adapter-deepseek`.
-- This preview does not replace the Agent sandbox and approval policy configured in DeepSeek Harness.
+- DeepSeek Harness is still an early-stage product and may change its network interface; all DeepSeek Harness calls are isolated in `packages/adapter-deepseek`.
+- This release does not replace the Agent sandbox and approval policy configured in DeepSeek Harness.
 
 ## License
 

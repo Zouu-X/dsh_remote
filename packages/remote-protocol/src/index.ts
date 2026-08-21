@@ -20,11 +20,11 @@ export type RemoteRole = 'owner' | 'operator' | 'viewer'
 export type RemoteEventStream = 'mux' | 'host'
 
 export interface RemotePrincipal {
-  /** Stable account/user id. A maps the tailnet owner; B maps the OIDC subject. */
+  /** Stable account/user id. Currently maps the tailnet owner; future account systems may map a login subject. */
   userId: UserId
-  /** Stable device id. A derives it from the trusted tailnet peer; B mints it during QR pairing. */
+  /** Stable device id. Currently derived from the trusted tailnet peer; future pairing can mint a device id. */
   deviceId: DeviceId
-  /** Stable Mac host id. Persisted from A1 and retained through the B migration. */
+  /** Stable Mac host id, persisted locally and kept stable across restarts and transport changes. */
   hostId: HostId
   roles: RemoteRole[]
   /** Human-readable device name for audit/UI display. */

@@ -1,25 +1,33 @@
-# A0 Spike
+# Harness connectivity tools
 
-A0 is a connectivity spike for validating the “Tailscale Serve → 127.0.0.1:3080” path to the existing DeepSeek Harness web UI and API. The scripts in this directory are validation tools, not part of the mobile app runtime.
+These scripts validate the “Tailscale Serve → 127.0.0.1:3080” path to the existing DeepSeek Harness web UI and API. They are validation tools, not part of the mobile app runtime.
 
-## Local smoke test
+## Local connectivity test
 
 ```bash
-node spikes/a0/smoke.mjs
+node tools/harness-connectivity/connectivity-check.mjs
 ```
 
 Defaults to `http://127.0.0.1:3080` and checks the web UI, PWA manifest, unary RPCs, both WebSocket endpoints, the browser-trust fence, and the loopback-only RPC lockdown.
 
-## Remote smoke test
+## Remote connectivity test
 
 ```bash
-node spikes/a0/smoke.mjs --base https://<your-mac>.<your-tailnet>.ts.net
+node tools/harness-connectivity/connectivity-check.mjs --base https://<your-mac>.<your-tailnet>.ts.net
 ```
 
 ## Single-task event stream test
 
 ```bash
-node spikes/a0/task.mjs   --base https://<your-mac>.<your-tailnet>.ts.net   --session <session-id>   --prompt "<prompt>"   [--auto-approval allowed-once|rejected]   [--answer-first]   [--steer-after <ms>]   [--steer "<text>"]   [--reconnect-after <ms>]
+node tools/harness-connectivity/task.mjs \
+  --base https://<your-mac>.<your-tailnet>.ts.net \
+  --session <session-id> \
+  --prompt "<prompt>" \
+  [--auto-approval allowed-once|rejected] \
+  [--answer-first] \
+  [--steer-after <ms>] \
+  [--steer "<text>"] \
+  [--reconnect-after <ms>]
 ```
 
 It consumes `/api/events.mux` and is useful for validating long tasks, steering, questions, approvals, and reconnects.

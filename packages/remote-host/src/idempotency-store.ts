@@ -11,8 +11,8 @@ interface Entry {
 }
 
 /**
- * In-memory duplicate guard for remote write RPCs. A1 keeps the guard local;
- * B moves the same key/value shape into the Relay control plane.
+ * In-memory duplicate guard for remote write RPCs. The guard is process-local;
+ * a future relay deployment can move the same key/value shape to the server.
  */
 export class IdempotencyStore {
   private readonly entries = new Map<string, Entry>()

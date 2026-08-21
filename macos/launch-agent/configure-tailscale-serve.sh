@@ -15,7 +15,7 @@ if ! command -v tailscale >/dev/null 2>&1; then
   exit 1
 fi
 
-# An older A0 HTTPS serve entry can conflict with the TCP mode used by A1.
+# An older HTTPS serve entry can conflict with the TCP mode used by this project.
 tailscale serve --https=443 off >/dev/null 2>&1 || true
 
 tailscale serve --bg --yes --tls-terminated-tcp=443 --proxy-protocol=1 "$PORT"

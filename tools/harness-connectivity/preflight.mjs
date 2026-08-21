@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * A0 preflight: reports whether the Mac is ready for the Tailscale Serve
- * spike without printing any API key, token, or private-key content.
+ * Preflight check: reports whether the Mac is ready for the Tailscale Serve
+ * path without printing any API key, token, or private-key content.
  *
- * Usage: node spikes/a0/preflight.mjs
+ * Usage: node tools/harness-connectivity/preflight.mjs
  */
 
 import { execFileSync } from 'node:child_process'

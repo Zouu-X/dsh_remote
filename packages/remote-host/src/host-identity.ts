@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto'
 import type { HostId } from '@dsh-remote/protocol'
 
 /**
- * Host identity persistence. A1 persists the Host ID so B migration retains
- * the same host identity across the A1-to-B migration.
+ * Host identity is persisted on disk so the same Mac keeps the same Host ID
+ * across restarts and future transport changes.
  */
 
 export interface HostIdentityOptions {

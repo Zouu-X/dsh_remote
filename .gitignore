@@ -17,7 +17,7 @@ credentials.yaml
 macos/launch-agent/launch-agent.env
 
 # Runtime scratch and logs
-spikes/a0/.tmp/
+tools/harness-connectivity/.tmp/
 *.log
 
 # pnpm store (localized under the project)

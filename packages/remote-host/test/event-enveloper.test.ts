@@ -96,7 +96,7 @@ describe('remote host event normalization', () => {
     })
   })
 
-  it('maps the A1 loopback principal', () => {
+  it('maps the loopback principal', () => {
     const principal = loopbackPrincipal({ userId: 'user_1', deviceId: 'tailscale-serve', hostId: 'host_1' })
     expect(principal).toMatchObject({ userId: 'user_1', roles: ['owner'] })
   })

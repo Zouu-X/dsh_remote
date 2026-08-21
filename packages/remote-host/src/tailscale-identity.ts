@@ -8,7 +8,7 @@ export interface TailscalePeerIdentity {
   deviceId: string
   /** Human-readable peer hostname, e.g. test-phone. */
   deviceName: string
-  /** Tailscale UserID. The local tailnet owner shares one UserID in A1. */
+  /** Tailscale UserID. Devices in the owner's tailnet share one UserID in the current single-user setup. */
   userId: string
   tailscaleIp: string
   online: boolean

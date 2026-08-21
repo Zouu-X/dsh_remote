@@ -16,9 +16,9 @@ import type { EventId, HostId } from '@dsh-remote/protocol'
 /**
  * The only package that knows the DeepSeek Harness upstream wire contract.
  *
- * A1 consumes the same HTTP RPC + two downlink WebSocket endpoints that A0
- * validated. The upstream project is a developer preview, so every call and
- * every frame type lives behind this adapter.
+ * This package consumes the HTTP RPC and the two downlink WebSocket endpoints
+ * exposed by DeepSeek Harness. The upstream project is a developer preview,
+ * so every call and every frame type lives behind this adapter.
  */
 
 export interface HarnessRpcError {

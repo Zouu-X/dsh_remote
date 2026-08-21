@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * A0 task runner: sends one prompt over the Tailscale Serve authority,
+ * Task runner: sends one prompt over the Tailscale Serve authority,
  * consumes /api/events.mux for that session, optionally answers questions
  * and approvals, optionally steers mid-run, and then reads session.history.
  *
- * Read the generated output as an A0 wire-level trace; it does not print
+ * Read the generated output as a wire-level trace; it does not print
  * API keys or credential contents. Keep prompt text limited to the scratch
- * workspace used for A0 validation.
+ * workspace used for connectivity validation.
  *
  * Usage:
- *   node spikes/a0/task.mjs \
+ *   node tools/harness-connectivity/task.mjs \
  *     --session <session-id> \
  *     --prompt "<prompt>" \
  *     [--auto-approval allowed-once|rejected] \
@@ -80,7 +80,7 @@ function failUsage(message) {
 }
 
 function helpText() {
-  return `Usage: node spikes/a0/task.mjs --session <session-id> --prompt <text> [options]
+  return `Usage: node tools/harness-connectivity/task.mjs --session <session-id> --prompt <text> [options]
 
 Options:
   --base <url>                 Default http://127.0.0.1:3080
@@ -94,7 +94,7 @@ Options:
 }
 
 async function main() {
-  console.log(`A0 task session=${options.session}`)
+  console.log(`Task session=${options.session}`)
   console.log(`base=${options.base}`)
   console.log(`prompt=${options.prompt}`)
   console.log('')

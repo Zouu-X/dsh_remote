@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * A0 connectivity smoke test for DeepSeek Harness remote control.
+ * Connectivity test for exposing DeepSeek Harness through Tailscale Serve.
  *
  * Read-only by default. It exercises the exact loopback surface that
  * Tailscale Serve will proxy later:
@@ -10,8 +10,8 @@
  *   - loopback-only RPC lockdown when pointed at a non-loopback authority
  *
  * Usage:
- *   node spikes/a0/smoke.mjs
- *   node spikes/a0/smoke.mjs --base https://your-mac.your-tailnet.ts.net
+ *   node tools/harness-connectivity/connectivity-check.mjs
+ *   node tools/harness-connectivity/connectivity-check.mjs --base https://your-mac.your-tailnet.ts.net
  *
  * The script never prints API keys or credential contents.
  */
@@ -41,7 +41,7 @@ function failUsage(message) {
 }
 
 function helpText() {
-  return `Usage: node spikes/a0/smoke.mjs [--base <url>]
+  return `Usage: node tools/harness-connectivity/connectivity-check.mjs [--base <url>]
 
 Defaults to http://127.0.0.1:3080. Point --base at the Tailscale Serve
 authority after it is configured and Harness is restarted with --trusted-host.
@@ -65,7 +65,7 @@ function isLoopbackAuthority(value) {
 
 async function main() {
   base = normalizeBase(base)
-  console.log(`A0 smoke test against ${base}`)
+  console.log(`DeepSeek Harness connectivity test against ${base}`)
   console.log(`loopback authority: ${isLoopbackAuthority(base)}`)
   console.log('')
 

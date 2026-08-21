@@ -1,6 +1,6 @@
 import type { RemotePrincipal } from '@dsh-remote/protocol'
 
-export interface A1PrincipalOptions {
+export interface LoopbackPrincipalOptions {
   userId: string
   deviceId: string
   hostId: string
@@ -8,13 +8,13 @@ export interface A1PrincipalOptions {
 }
 
 /**
- * A1 trust model: the Remote Host Adapter listens on loopback only. Any
+ * Current trust model: the Remote Host Adapter listens on loopback only. Any
  * request that reaches it has already been accepted by Tailscale Serve and
  * therefore by the tailnet ACL. Tailscale `--trusted-host` is not identity;
- * this principal is deliberately coarse for the single-user MVP. B will mint
- * per-device tokens and resolve the same RemotePrincipal type.
+ * this principal is deliberately coarse for the single-user setup. Future
+ * deployments can resolve the same RemotePrincipal from per-device tokens.
  */
-export function loopbackPrincipal(options: A1PrincipalOptions): RemotePrincipal {
+export function loopbackPrincipal(options: LoopbackPrincipalOptions): RemotePrincipal {
   return {
     userId: options.userId,
     deviceId: options.deviceId,
