@@ -86,18 +86,22 @@ if ! find_tailscale; then
 fi
 export PATH="$(dirname "$TAILSCALE_BIN"):$PATH"
 
+tailscale_state() {
+  "$TAILSCALE_BIN" status --json 2>/dev/null | /usr/bin/python3 -c 'import json,sys; print((json.load(sys.stdin).get("BackendState") or ""))' 2>/dev/null
+}
+
 tailscale_dns() {
   "$TAILSCALE_BIN" status --json 2>/dev/null | /usr/bin/python3 -c 'import json,sys; s=json.load(sys.stdin); d=(s.get("Self") or {}).get("DNSName") or ""; print(d.rstrip("."))'
 }
 
 info "Using Tailscale at $TAILSCALE_BIN"
-if ! tailscale status >/dev/null 2>&1 || [[ -z "$(tailscale_dns)" ]]; then
+if [[ "$(tailscale_state)" != "Running" ]]; then
   info "Opening Tailscale and starting sign-in. Complete the browser sign-in if prompted."
   open -a Tailscale >/dev/null 2>&1 || open /Applications/Tailscale.app >/dev/null 2>&1 || true
   "$TAILSCALE_BIN" up >"$TAILSCALE_UP_LOG" 2>&1 &
   TAILSCALE_UP_PID=$!
   for _ in {1..120}; do
-    if "$TAILSCALE_BIN" status --json >/dev/null 2>&1 && [[ -n "$(tailscale_dns)" ]]; then
+    if [[ "$(tailscale_state)" == "Running" ]]; then
       break
     fi
     sleep 1
