@@ -84,9 +84,19 @@ cd dsh-remote
 ./macos/launch-agent/setup.sh
 ```
 
-脚本会检查/安装依赖、协助登录 Tailscale、安装 Node 依赖、构建 PWA、安装 LaunchAgent、启动可选的 Harness 监督器、配置 Tailscale Serve，并打印手机访问地址。
+脚本会检查/安装依赖、协助登录 Tailscale、安装 Node 依赖、构建 PWA、以“手动管理 Harness + 自动跟随”模式安装 Remote Host LaunchAgent、配置 Tailscale Serve，并打印手机访问地址。
 
-### 3. 在手机上打开应用
+### 3. 手动启动 DeepSeek Harness
+
+安装脚本会打印适用于你 Mac 的准确命令，形如：
+
+```bash
+npx @deepseek-ai/dsh web --trusted-host <你的-Mac>.<你的-tailnet>.ts.net
+```
+
+保持它运行即可，Remote Host LaunchAgent 会自动跟随 `127.0.0.1:3080`。
+
+### 4. 在手机上打开应用
 
 在手机上打开脚本打印的 `https://<你的-Mac>.<你的-tailnet>.ts.net`，并添加到主屏幕。
 
@@ -192,7 +202,7 @@ macos/launch-agent/devices.sh allow-all
 | `DSH_REMOTE_CAFFEINATE` | 安装后的 LaunchAgent 默认为 `auto`（手动 CLI 启动默认为 `off`） | `auto` 表示仅在有 Session 运行时防止 Mac 睡眠 |
 | `DSH_REMOTE_TRUSTED_HOST` | 自动检测 | 传给可选 Harness 监督器的 MagicDNS 名称 |
 | `DSH_REMOTE_HARNESS_POLL_SECONDS` | `15` | LaunchAgent 检查 Harness 是否可用的间隔 |
-| `DSH_INSTALL_HARNESS_SUPERVISOR` | `install.sh` 默认为 `0`，`setup.sh` 默认为 `1` | 设为 `1` 时安装可选的 Harness 监督器 |
+| `DSH_INSTALL_HARNESS_SUPERVISOR` | `0` | 设为 `1` 时安装可选的 Harness 监督器 |
 | `DSH_REMOTE_NODE` | 安装时的 `node` 路径 | LaunchAgent 使用的 Node 可执行文件 |
 
 Remote Host CLI 也接受同名的命令行参数：

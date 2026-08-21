@@ -84,9 +84,19 @@ cd dsh-remote
 ./macos/launch-agent/setup.sh
 ```
 
-The script checks/installs prerequisites, signs in Tailscale, installs dependencies, builds the PWA, installs the LaunchAgent, starts the optional Harness supervisor, configures Tailscale Serve, and prints your phone URL.
+The script checks/installs prerequisites, signs in Tailscale, installs dependencies, builds the PWA, installs the Remote Host LaunchAgent in manual-Harness follow mode, configures Tailscale Serve, and prints your phone URL.
 
-### 3. Open the app on your phone
+### 3. Start DeepSeek Harness manually
+
+The setup script prints the exact command for your Mac. It looks like:
+
+```bash
+npx @deepseek-ai/dsh web --trusted-host <your-mac>.<your-tailnet>.ts.net
+```
+
+Keep it running. The Remote Host LaunchAgent follows `127.0.0.1:3080` automatically.
+
+### 4. Open the app on your phone
 
 Open the printed `https://<your-mac>.<your-tailnet>.ts.net` URL on your phone and add it to the home screen.
 
@@ -192,7 +202,7 @@ Changes are applied by restarting the LaunchAgent automatically.
 | `DSH_REMOTE_CAFFEINATE` | `auto` in the installed LaunchAgent (`off` for a manual CLI start) | `auto` keeps the Mac awake only while sessions are running |
 | `DSH_REMOTE_TRUSTED_HOST` | auto-detected | MagicDNS name passed to the optional Harness supervisor |
 | `DSH_REMOTE_HARNESS_POLL_SECONDS` | `15` | How often the LaunchAgent checks Harness availability |
-| `DSH_INSTALL_HARNESS_SUPERVISOR` | `0` for `install.sh`, `1` for `setup.sh` | Set to `1` to install the optional Harness supervisor |
+| `DSH_INSTALL_HARNESS_SUPERVISOR` | `0` | Set to `1` to install the optional Harness supervisor |
 | `DSH_REMOTE_NODE` | install-time `node` path | Node binary used by the LaunchAgent |
 
 The Remote Host CLI accepts the same values as flags:

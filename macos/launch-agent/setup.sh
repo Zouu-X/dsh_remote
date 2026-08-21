@@ -8,7 +8,7 @@
 # API credential). It is idempotent: rerun it after changing settings.
 #
 # Useful overrides:
-#   DSH_INSTALL_HARNESS_SUPERVISOR=0  keep manual Harness management
+#   DSH_INSTALL_HARNESS_SUPERVISOR=1  opt in to automatic Harness supervision
 #   DSH_SETUP_SKIP_BUILD=1            skip pnpm install/build
 #   DSH_REMOTE_PORT=3090              custom Remote Host port
 set -euo pipefail
@@ -137,15 +137,20 @@ if [[ "${DSH_SETUP_SKIP_BUILD:-0}" != "1" ]]; then
 fi
 
 # --- LaunchAgent ------------------------------------------------------------
-SUPERVISOR="${DSH_INSTALL_HARNESS_SUPERVISOR:-1}"
+SUPERVISOR="${DSH_INSTALL_HARNESS_SUPERVISOR:-0}"
 info "Installing the user LaunchAgent (Harness supervisor: $([[ "$SUPERVISOR" == "1" ]] && echo on || echo off))..."
 DSH_INSTALL_HARNESS_SUPERVISOR="$SUPERVISOR" "$REPO_ROOT/macos/launch-agent/install.sh"
 
-# Wait for the Remote Host to come up. With supervisor on, the first Harness
-# download through npx can take a while.
+# The Remote Host follows a manually managed Harness by default. If Harness
+# is already running, the Remote Host appears within one 15s poll cycle.
 REMOTE_PORT="${DSH_REMOTE_PORT:-3090}"
 REMOTE_UP=0
-for _ in {1..180}; do
+WAIT_SECONDS=20
+if [[ "$SUPERVISOR" == "1" ]]; then
+  # The first npx download of Harness can take a while.
+  WAIT_SECONDS=180
+fi
+for ((i = 0; i < WAIT_SECONDS; i += 1)); do
   if /usr/sbin/lsof -nP -iTCP:"$REMOTE_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
     REMOTE_UP=1
     break
@@ -167,6 +172,10 @@ info "Configuring Tailscale Serve (https -> 127.0.0.1:$REMOTE_PORT)..."
 
 # --- Done --------------------------------------------------------------------
 info "Setup complete."
+echo
+echo "If DeepSeek Harness is not already running, start it in another terminal:"
+echo "  npx @deepseek-ai/dsh web --trusted-host \"$DNS_NAME\""
+echo "The Remote Host LaunchAgent follows 127.0.0.1:3080 automatically."
 echo
 echo "  Phone URL:  https://$DNS_NAME"
 echo
