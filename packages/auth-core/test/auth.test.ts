@@ -33,6 +33,11 @@ describe('remote capability policy', () => {
     expect(() => authorizeRemoteMethod(viewer, 'session.create')).toThrow(/lacks capability/)
   })
 
+  it('viewer can inspect models but cannot change them', () => {
+    expect(() => authorizeRemoteMethod(viewer, 'session.models')).not.toThrow()
+    expect(() => authorizeRemoteMethod(viewer, 'session.select-model')).toThrow(/lacks capability/)
+  })
+
   it('remote allowlist excludes privileged upstream methods', () => {
     for (const method of FORBIDDEN_REMOTE_METHODS) {
       expect(isRemoteMethod(method)).toBe(false)
@@ -40,6 +45,9 @@ describe('remote capability policy', () => {
     expect(REMOTE_METHOD_CAPABILITIES).toMatchObject({
       'session.list': 'session:read',
       'session.prompt': 'session:prompt',
+      'agent-preset.list': 'session:read',
+      'session.models': 'session:read',
+      'session.select-model': 'session:prompt',
       'approval.respond': 'approval:respond',
     })
   })

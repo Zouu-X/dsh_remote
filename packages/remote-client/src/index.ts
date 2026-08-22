@@ -1,4 +1,6 @@
 import type {
+  AgentPresetOption,
+  AgentPresetSelectInput,
   ApprovalDecision,
   HostDescriptor,
   PromptInput,
@@ -8,9 +10,12 @@ import type {
   SessionCreateInput,
   SessionHistoryPage,
   SessionHistoryQuery,
+  SessionModels,
+  SessionModelSelectInput,
   SessionSearchItem,
   SessionSummary,
   WorkspaceCreateInput,
+  WorkspaceListResult,
   WorkspaceSummary,
 } from '@dsh-remote/domain'
 import {
@@ -43,12 +48,16 @@ export interface AgentHostTransport {
   readonly baseUrl: string
   health(): Promise<RemoteHostHealth>
   hostDescribe(): Promise<HostDescriptor>
-  listWorkspaces(): Promise<{ items: WorkspaceSummary[] }>
+  listWorkspaces(): Promise<WorkspaceListResult>
   createWorkspace(input: WorkspaceCreateInput): Promise<{ workspace: WorkspaceSummary; created: boolean }>
   listSessions(): Promise<{ items: SessionSummary[] }>
   searchSessions(query: string): Promise<{ items: SessionSearchItem[]; hasMore: boolean }>
   createSession(input: SessionCreateInput, idempotencyKey?: string): Promise<string>
+  listAgentPresets(): Promise<{ items: AgentPresetOption[] }>
+  selectAgentPreset(input: AgentPresetSelectInput, idempotencyKey?: string): Promise<{ agentPreset: string }>
   sessionHistory(query: SessionHistoryQuery): Promise<SessionHistoryPage>
+  sessionModels(sessionId: string): Promise<SessionModels>
+  selectSessionModel(input: SessionModelSelectInput, idempotencyKey?: string): Promise<SessionModels['current']>
   prompt(input: PromptInput, idempotencyKey?: string): Promise<void>
   approvalRespond(decision: ApprovalDecision): Promise<{ accepted: boolean }>
   questionRespond(decision: QuestionDecision): Promise<{ accepted: boolean }>
@@ -102,7 +111,7 @@ export class DirectTailnetTransport implements AgentHostTransport {
     return this.rpc('host.describe', {})
   }
 
-  listWorkspaces(): Promise<{ items: WorkspaceSummary[] }> {
+  listWorkspaces(): Promise<WorkspaceListResult> {
     return this.rpc('workspace.list', {})
   }
 
@@ -123,8 +132,25 @@ export class DirectTailnetTransport implements AgentHostTransport {
     return value.sessionId
   }
 
+  listAgentPresets(): Promise<{ items: AgentPresetOption[] }> {
+    return this.rpc('agent-preset.list', {})
+  }
+
+  selectAgentPreset(input: AgentPresetSelectInput, idempotencyKey?: string): Promise<{ agentPreset: string }> {
+    return this.rpc('agent-preset.select', input, idempotencyKey)
+  }
+
   sessionHistory(query: SessionHistoryQuery): Promise<SessionHistoryPage> {
     return this.rpc('session.history', query)
+  }
+
+  sessionModels(sessionId: string): Promise<SessionModels> {
+    return this.rpc('session.models', { sessionId })
+  }
+
+  async selectSessionModel(input: SessionModelSelectInput, idempotencyKey?: string): Promise<SessionModels['current']> {
+    const value = await this.rpc('session.select-model', input, idempotencyKey)
+    return value.selected
   }
 
   async prompt(input: PromptInput, idempotencyKey?: string): Promise<void> {

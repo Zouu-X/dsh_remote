@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RemoteSequenceTracker } from '@dsh-remote/client'
+import { reusableBlankSession, visibleTaskSessions } from '@dsh-remote/domain'
 import type {
+  AgentPresetOption,
   ApprovalDecision,
   ApprovalRequest,
   HostDescriptor,
+  QuestionAnswerItem,
   QuestionDecision,
   QuestionRequest,
   SessionEventView,
   SessionHistoryPage,
+  SessionModels,
+  SessionModelSelectInput,
   SessionSearchItem,
   SessionSummary,
   WorkspaceSummary,
@@ -67,6 +72,20 @@ export interface RemoteQueuedItem {
   text: string
 }
 
+export interface ApprovalDisplay {
+  request: ApprovalRequest
+  toolTitle: string
+  argumentsText?: string
+  callView?: unknown
+}
+
+export interface ResolvedApproval {
+  request: ApprovalRequest
+  outcome: string
+  display?: ApprovalDisplay
+  resolvedAt: string
+}
+
 function asQueuedItems(payload: unknown): RemoteQueuedItem[] {
   if (typeof payload !== 'object' || payload === null) return []
   const value = payload as Record<string, unknown>
@@ -109,6 +128,45 @@ function asLiveSessionEvent(payload: unknown): LiveSessionEvent | undefined {
   return undefined
 }
 
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : undefined
+}
+
+function toolTitleFor(request: ApprovalRequest, event: SessionEventView | undefined): string {
+  const view = record(record(event?.view)?.view)
+  const viewTitle = typeof view?.title === 'string' ? view.title : undefined
+  if (viewTitle !== undefined && viewTitle.trim() !== '') return viewTitle
+  const payload = record(event?.payload)
+  const argumentsText = payload?.arguments
+  if (typeof argumentsText === 'string') {
+    try {
+      const parsed = JSON.parse(argumentsText) as unknown
+      const parsedRecord = record(parsed)
+      const command = typeof parsedRecord?.command === 'string' ? parsedRecord.command : undefined
+      if (command !== undefined && command.trim() !== '') return command
+      const filePath = typeof parsedRecord?.file_path === 'string' ? parsedRecord.file_path : undefined
+      if (filePath !== undefined) return `写文件 ${filePath}`
+    } catch {
+      return argumentsText
+    }
+  }
+  return request.toolName
+}
+
+function argumentsTextFor(event: SessionEventView | undefined): string | undefined {
+  const argumentsValue = record(event?.payload)?.arguments
+  if (typeof argumentsValue === 'string') return argumentsValue
+  if (argumentsValue !== undefined) return JSON.stringify(argumentsValue)
+  return undefined
+}
+
+function defaultQuestionAnswers(request: QuestionRequest): QuestionAnswerItem[] {
+  return request.questions.map(question => ({
+    id: question.id,
+    selected: question.options?.[0] ? [question.options[0].label] : [],
+  }))
+}
+
 export function useRemote() {
   const trackerRef = useRef(new RemoteSequenceTracker())
   const rebaselineStreamsRef = useRef(new Set<RemoteEventStream>())
@@ -116,7 +174,11 @@ export function useRemote() {
   const [health, setHealth] = useState<RemoteHostHealth | null>(null)
   const [host, setHost] = useState<HostDescriptor | null>(null)
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
+  const [archivedSessionIds, setArchivedSessionIds] = useState<string[]>([])
   const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const [agentPresets, setAgentPresets] = useState<AgentPresetOption[]>([])
+  const [sessionModels, setSessionModels] = useState<SessionModels | null>(null)
+  const [modelsLoading, setModelsLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<SessionSearchItem[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [history, setHistory] = useState<SessionHistoryPage | null>(null)
@@ -128,27 +190,70 @@ export function useRemote() {
   const loadingOlderRef = useRef(false)
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([])
   const [pendingQuestions, setPendingQuestions] = useState<QuestionRequest[]>([])
+  const [approvalDisplays, setApprovalDisplays] = useState<Record<string, ApprovalDisplay>>({})
+  const [resolvedApprovals, setResolvedApprovals] = useState<ResolvedApproval[]>([])
+  const [questionDrafts, setQuestionDrafts] = useState<Record<string, QuestionAnswerItem[]>>({})
+  const pendingApprovalsRef = useRef<ApprovalRequest[]>([])
+  const approvalDisplaysRef = useRef<Record<string, ApprovalDisplay>>({})
   const [queuedBySession, setQueuedBySession] = useState<Record<string, RemoteQueuedItem[]>>({})
   const [connection, setConnection] = useState<ConnectionState>('connecting')
   const [gapNotice, setGapNotice] = useState('')
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    pendingApprovalsRef.current = pendingApprovals
+  }, [pendingApprovals])
+
+  useEffect(() => {
+    approvalDisplaysRef.current = approvalDisplays
+  }, [approvalDisplays])
+
+  const clearPendingQuestion = useCallback((rpcId: string) => {
+    setPendingQuestions(previous => previous.filter(item => item.rpcId !== rpcId))
+    setQuestionDrafts(previous => {
+      if (previous[rpcId] === undefined) return previous
+      const next = { ...previous }
+      delete next[rpcId]
+      return next
+    })
+  }, [])
+
   const refreshAll = useCallback(async () => {
     try {
-      const [nextHealth, nextHost, nextWorkspaces, nextSessions] = await Promise.all([
+      const [nextHealth, nextHost, nextWorkspaces, nextSessions, nextPresets] = await Promise.all([
         transport.health(),
         transport.hostDescribe(),
         transport.listWorkspaces(),
         transport.listSessions(),
+        transport.listAgentPresets(),
       ])
       setHealth(nextHealth)
       setHost(nextHost)
       setWorkspaces(nextWorkspaces.items)
+      setArchivedSessionIds(nextWorkspaces.archivedSessionIds)
       setSessions(nextSessions.items)
+      setAgentPresets(nextPresets.items)
       setError('')
       setGapNotice('')
+      setConnection('open')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
+      setConnection('reconnecting')
+    }
+  }, [])
+
+  const refreshSessionModels = useCallback(async (sessionId: string) => {
+    setModelsLoading(true)
+    try {
+      const models = await transport.sessionModels(sessionId)
+      if (selectedSessionIdRef.current === sessionId) setSessionModels(models)
+      setError('')
+      return models
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+      return null
+    } finally {
+      if (selectedSessionIdRef.current === sessionId) setModelsLoading(false)
     }
   }, [])
 
@@ -213,16 +318,39 @@ export function useRemote() {
     }
   }, [])
 
+  const loadApprovalDisplay = useCallback(async (request: ApprovalRequest): Promise<ApprovalDisplay> => {
+    try {
+      let page = historyRef.current?.sessionId === request.sessionId ? historyRef.current : null
+      if (page === null) page = await transport.sessionHistory({ sessionId: request.sessionId })
+      const toolEvent = page?.events.find(event =>
+        event.type === 'tool/call' && record(event.payload)?.callId === request.callId,
+      )
+      const argumentsText = argumentsTextFor(toolEvent)
+      return {
+        request,
+        toolTitle: toolTitleFor(request, toolEvent),
+        ...(argumentsText !== undefined && { argumentsText }),
+        ...(toolEvent !== undefined && toolEvent.view !== undefined && { callView: toolEvent.view }),
+      }
+    } catch {
+      return { request, toolTitle: request.toolName }
+    }
+  }, [])
+
   const selectSession = useCallback((sessionId: string | null) => {
     historyGenerationRef.current += 1
     setSelectedSessionId(sessionId)
     selectedSessionIdRef.current = sessionId
     setHistory(null)
+    setSessionModels(null)
     historyRef.current = null
     setHistoryNotice('')
     setLoadingOlder(false)
-    if (sessionId !== null) void refreshHistory(sessionId)
-  }, [refreshHistory])
+    if (sessionId !== null) {
+      void refreshHistory(sessionId)
+      void refreshSessionModels(sessionId)
+    }
+  }, [refreshHistory, refreshSessionModels])
 
   useEffect(() => {
     void refreshAll()
@@ -298,7 +426,10 @@ export function useRemote() {
       setGapNotice('')
       void refreshAll()
       const selectedId = selectedSessionIdRef.current
-      if (selectedId !== null) void refreshHistory(selectedId)
+      if (selectedId !== null) {
+        void refreshHistory(selectedId)
+        void refreshSessionModels(selectedId)
+      }
     }
 
     const acceptance = trackerRef.current.accept(envelope)
@@ -306,7 +437,10 @@ export function useRemote() {
       setGapNotice(`检测到事件缺口 host=${envelope.hostId} ${acceptance.from}-${acceptance.to}；正在从 session.history 补齐`)
       void refreshAll()
       const selectedId = selectedSessionIdRef.current
-      if (selectedId !== null) void refreshHistory(selectedId)
+      if (selectedId !== null) {
+        void refreshHistory(selectedId)
+        void refreshSessionModels(selectedId)
+      }
     }
 
     if (envelope.type === 'approval/requested') {
@@ -315,13 +449,27 @@ export function useRemote() {
         setPendingApprovals(previous => (
           previous.some(item => item.approvalId === request.approvalId) ? previous : [...previous, request]
         ))
+        void loadApprovalDisplay(request).then(display => {
+          setApprovalDisplays(previous => ({ ...previous, [request.approvalId]: display }))
+        })
       }
       return
     }
     if (envelope.type === 'approval/resolved') {
-      const payload = envelope.payload as Record<string, unknown> | undefined
+      const payload = record(envelope.payload)
       const approvalId = typeof payload?.approvalId === 'string' ? payload.approvalId : ''
+      const outcome = typeof payload?.outcome === 'string' ? payload.outcome : ''
       if (approvalId !== '') {
+        const request = pendingApprovalsRef.current.find(item => item.approvalId === approvalId)
+        if (request !== undefined && outcome !== '') {
+          const display = approvalDisplaysRef.current[approvalId]
+          setResolvedApprovals(previous => [{
+            request,
+            outcome,
+            ...(display !== undefined && { display }),
+            resolvedAt: new Date().toISOString(),
+          }, ...previous].slice(0, 20))
+        }
         setPendingApprovals(previous => previous.filter(item => item.approvalId !== approvalId))
       }
       return
@@ -332,15 +480,17 @@ export function useRemote() {
         setPendingQuestions(previous => (
           previous.some(item => item.rpcId === request.rpcId) ? previous : [...previous, request]
         ))
+        setQuestionDrafts(previous => ({
+          ...previous,
+          [request.rpcId]: previous[request.rpcId] ?? defaultQuestionAnswers(request),
+        }))
       }
       return
     }
     if (envelope.type === 'question/resolved') {
-      const payload = envelope.payload as Record<string, unknown> | undefined
+      const payload = record(envelope.payload)
       const rpcId = typeof payload?.rpcId === 'string' ? payload.rpcId : ''
-      if (rpcId !== '') {
-        setPendingQuestions(previous => previous.filter(item => item.rpcId !== rpcId))
-      }
+      if (rpcId !== '') clearPendingQuestion(rpcId)
       return
     }
     if (envelope.type === 'session/queue' && envelope.sessionId !== undefined) {
@@ -383,7 +533,9 @@ export function useRemote() {
       setSearchResults([])
       return
     }
-    const localFallback = sessions
+    const visibleSessions = visibleTaskSessions(sessions, archivedSessionIds)
+    const visibleIds = new Set(visibleSessions.map(session => session.sessionId))
+    const localFallback = visibleSessions
       .filter(session => {
         const haystack = `${session.title ?? ''} ${session.cwd ?? ''} ${session.sessionId}`.toLowerCase()
         return haystack.includes(trimmed.toLowerCase())
@@ -395,7 +547,8 @@ export function useRemote() {
 
     try {
       const result = await transport.searchSessions(trimmed)
-      setSearchResults(result.items.length > 0 ? result.items : localFallback)
+      const visibleResults = result.items.filter(item => visibleIds.has(item.sessionId))
+      setSearchResults(visibleResults.length > 0 ? visibleResults : localFallback)
       setError('')
     } catch {
       // Upstream full-text search is disabled in the default Harness web
@@ -403,47 +556,135 @@ export function useRemote() {
       setSearchResults(localFallback)
       setError('')
     }
-  }, [sessions])
+  }, [archivedSessionIds, sessions])
 
-  const createSession = useCallback(async (workspaceId?: string) => {
+  const createSession = useCallback(async (workspaceId?: string, idempotencyKey?: string, agentPreset?: string) => {
     try {
-      const sessionId = await transport.createSession(workspaceId !== undefined ? { workspaceId } : {})
+      const reusable = workspaceId === undefined
+        ? undefined
+        : reusableBlankSession(sessions, workspaceId, archivedSessionIds)
+      let sessionId: string
+      if (reusable !== undefined) {
+        sessionId = reusable.sessionId
+        if (agentPreset !== undefined && reusable.agentPreset !== agentPreset) {
+          await transport.selectAgentPreset(
+            { sessionId, agentPreset },
+            `agent-preset:${sessionId}:${agentPreset}:${globalThis.crypto.randomUUID()}`,
+          )
+        }
+      } else {
+        sessionId = await transport.createSession(
+          {
+            ...(workspaceId !== undefined && { workspaceId }),
+            ...(agentPreset !== undefined && { agentPreset }),
+          },
+          idempotencyKey,
+        )
+      }
       setSelectedSessionId(sessionId)
       selectedSessionIdRef.current = sessionId
       await refreshAll()
       await refreshHistory(sessionId)
+      await refreshSessionModels(sessionId)
       return sessionId
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
       return null
     }
-  }, [refreshAll, refreshHistory])
+  }, [archivedSessionIds, refreshAll, refreshHistory, refreshSessionModels, sessions])
 
-  const sendPrompt = useCallback(async (sessionId: string, text: string, mode: 'queue' | 'steer' = 'queue') => {
+  const selectAgentPreset = useCallback(async (sessionId: string, agentPreset: string): Promise<boolean> => {
+    try {
+      await transport.selectAgentPreset(
+        { sessionId, agentPreset },
+        `agent-preset:${sessionId}:${agentPreset}:${globalThis.crypto.randomUUID()}`,
+      )
+      await refreshAll()
+      setError('')
+      return true
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+      return false
+    }
+  }, [refreshAll])
+
+  const selectSessionModel = useCallback(async (input: SessionModelSelectInput): Promise<boolean> => {
+    setModelsLoading(true)
+    try {
+      const selected = await transport.selectSessionModel(
+        input,
+        `session-model:${input.sessionId}:${input.provider}:${input.model}:${input.reasoningEffort ?? 'default'}:${globalThis.crypto.randomUUID()}`,
+      )
+      setSessionModels(previous => previous === null ? previous : { ...previous, current: selected, routable: true })
+      setError('')
+      return true
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+      return false
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [])
+
+  const createWorkspace = useCallback(async (path: string) => {
+    try {
+      const result = await transport.createWorkspace({ path })
+      await refreshAll()
+      return result
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+      return null
+    }
+  }, [refreshAll])
+
+  const sendPrompt = useCallback(async (
+    sessionId: string,
+    text: string,
+    mode: 'queue' | 'steer' = 'queue',
+    idempotencyKey?: string,
+  ): Promise<boolean> => {
+    let optimisticId: string | undefined
     if (mode === 'queue') {
       const running = sessions.some(session => session.sessionId === sessionId && session.running)
       if (running) {
+        optimisticId = `local:${Date.now()}:${Math.random()}`
         setQueuedBySession(previous => {
           const existing = previous[sessionId] ?? []
           return {
             ...previous,
             [sessionId]: [
               ...existing,
-              { id: `local:${Date.now()}:${Math.random()}`, placement: 'queued', text },
+              { id: optimisticId as string, placement: 'queued', text },
             ],
           }
         })
       }
     }
     try {
-      await transport.prompt({ sessionId, mode, text })
+      await transport.prompt({ sessionId, mode, text }, idempotencyKey)
+      setSessions(previous => previous.map(session => (
+        session.sessionId === sessionId && session.blank
+          ? { ...session, blank: false, updatedAt: Date.now() }
+          : session
+      )))
       setError('')
+      return true
     } catch (cause) {
+      if (optimisticId !== undefined) {
+        setQueuedBySession(previous => ({
+          ...previous,
+          [sessionId]: (previous[sessionId] ?? []).filter(item => item.id !== optimisticId),
+        }))
+      }
       setError(cause instanceof Error ? cause.message : String(cause))
+      return false
     }
   }, [sessions])
 
-  const respondApproval = useCallback(async (request: ApprovalRequest, outcome: ApprovalDecision['outcome']) => {
+  const respondApproval = useCallback(async (
+    request: ApprovalRequest,
+    outcome: ApprovalDecision['outcome'],
+  ): Promise<boolean> => {
     try {
       await transport.approvalRespond({
         sessionId: request.sessionId,
@@ -451,32 +692,61 @@ export function useRemote() {
         rpcId: request.rpcId,
         outcome,
       })
+      setError('')
+      return true
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
+      return false
     }
   }, [])
 
-  const respondQuestion = useCallback(async (request: QuestionRequest) => {
+  const updateQuestionDraft = useCallback((rpcId: string, answers: QuestionAnswerItem[]) => {
+    setQuestionDrafts(previous => ({ ...previous, [rpcId]: answers }))
+  }, [])
+
+  const respondQuestion = useCallback(async (
+    request: QuestionRequest,
+    answerOverride?: QuestionAnswerItem[],
+  ): Promise<boolean> => {
     try {
-      const answers = request.questions.map(question => ({
-        id: question.id,
-        selected: question.options?.[0] ? [question.options[0].label] : [],
-      }))
-      await transport.questionRespond({
+      const answers = answerOverride ?? questionDrafts[request.rpcId] ?? defaultQuestionAnswers(request)
+      const result = await transport.questionRespond({
         sessionId: request.sessionId,
         rpcId: request.rpcId,
         answer: { answers },
       })
+
+      // The HTTP response is the authoritative acknowledgement from Harness.
+      // Clear immediately instead of keeping a dead form around while waiting
+      // for a question/resolved event that may be delayed or lost.
+      clearPendingQuestion(request.rpcId)
+      if (!result.accepted) {
+        setError('该问题已处理或已过期，已从待办中移除')
+        return false
+      }
+      setError('')
+      return true
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
+      return false
     }
-  }, [])
+  }, [clearPendingQuestion, questionDrafts])
+
+  const visibleSessions = useMemo(
+    () => visibleTaskSessions(sessions, archivedSessionIds),
+    [archivedSessionIds, sessions],
+  )
 
   return {
     health,
     host,
     workspaces,
+    archivedSessionIds,
     sessions,
+    visibleSessions,
+    agentPresets,
+    sessionModels,
+    modelsLoading,
     selectedSessionId,
     history,
     historyLoading,
@@ -485,16 +755,24 @@ export function useRemote() {
     loadOlderHistory,
     pendingApprovals,
     pendingQuestions,
+    approvalDisplays,
+    resolvedApprovals,
+    questionDrafts,
+    updateQuestionDraft,
     queuedItems: selectedSessionId === null ? [] : (queuedBySession[selectedSessionId] ?? []),
     connection,
     gapNotice,
     error,
     refreshAll,
     refreshHistory,
+    refreshSessionModels,
     searchResults,
     searchSessions,
     selectSession,
     createSession,
+    selectAgentPreset,
+    selectSessionModel,
+    createWorkspace,
     sendPrompt,
     respondApproval,
     respondQuestion,

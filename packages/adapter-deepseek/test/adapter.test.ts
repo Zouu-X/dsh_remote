@@ -88,6 +88,99 @@ describe('DeepSeekHarnessAdapter', () => {
     await expect(adapter.hostDescribe()).rejects.toBeInstanceOf(HarnessAdapterError)
   })
 
+  it('maps the safe preset roster without exposing authoring fields', async () => {
+    const adapter = adapterWith({
+      fetch: (async () => new Response(JSON.stringify({
+        type: 'server-response',
+        rpcId: 'id-1',
+        result: {
+          ok: true,
+          value: {
+            presets: [{
+              id: 'standard',
+              trust: 'system',
+              isDefault: true,
+              name: '标准',
+              description: '完整编码能力',
+            }],
+            authorable: true,
+            hasDocument: true,
+          },
+        },
+      }), { status: 200 })) as typeof fetch,
+    })
+
+    await expect(adapter.agentPresetList()).resolves.toEqual([{
+      id: 'standard',
+      trust: 'system',
+      isDefault: true,
+      name: '标准',
+      description: '完整编码能力',
+    }])
+  })
+
+  it('preserves the workspace archive baseline for remote list filtering', async () => {
+    const adapter = adapterWith({
+      fetch: (async () => new Response(JSON.stringify({
+        type: 'server-response',
+        rpcId: 'id-1',
+        result: {
+          ok: true,
+          value: {
+            items: [{
+              workspaceId: 'ws_1',
+              path: '/repo',
+              title: 'repo',
+              sessionIds: ['session_1'],
+              createdAt: '2026-08-22T00:00:00.000Z',
+              updatedAt: '2026-08-22T00:00:00.000Z',
+            }],
+            archivedSessionIds: ['session_archived'],
+          },
+        },
+      }), { status: 200 })) as typeof fetch,
+    })
+
+    await expect(adapter.workspaceList()).resolves.toMatchObject({
+      items: [{ workspaceId: 'ws_1', path: '/repo', title: 'repo' }],
+      archivedSessionIds: ['session_archived'],
+    })
+  })
+
+  it('forwards complete session model selections to the upstream RPC', async () => {
+    const requests: Array<{ method: string; payload: unknown }> = []
+    const adapter = adapterWith({
+      fetch: (async (_url, init) => {
+        const request = JSON.parse(String(init?.body)) as { method: string; payload: unknown }
+        requests.push(request)
+        return new Response(JSON.stringify({
+          type: 'server-response',
+          rpcId: 'id-1',
+          result: {
+            ok: true,
+            value: { selected: { provider: 'deepseek', model: 'v4-pro', reasoningEffort: 'max' } },
+          },
+        }), { status: 200 })
+      }) as typeof fetch,
+    })
+
+    await adapter.sessionSelectModel({
+      sessionId: 'session_1',
+      provider: 'deepseek',
+      model: 'v4-pro',
+      reasoningEffort: 'max',
+    })
+    expect(requests[0]).toMatchObject({
+      method: 'session.selectModel',
+      payload: {
+        sessionId: 'session_1',
+        provider: 'deepseek',
+        model: 'v4-pro',
+        reasoningEffort: 'max',
+      },
+    })
+  })
+
   it('streams server-request frames from mux WebSocket', async () => {
     const adapter = adapterWith({ WebSocket: FakeWebSocketCtor })
     const seen: string[] = []

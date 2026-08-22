@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupSessionsByWorkspace } from '../src/index.js'
+import { groupSessionsByWorkspace, reusableBlankSession, visibleTaskSessions } from '../src/index.js'
 import type { ApprovalDecision, RemoteApiMap, SessionEventView } from '../src/index.js'
 
 describe('remote domain', () => {
@@ -44,5 +44,28 @@ describe('remote domain', () => {
     )
     expect(groups.map(group => group.title)).toEqual(['Alpha', 'Beta', '未分组'])
     expect(groups.map(group => group.sessions.length)).toEqual([1, 1, 1])
+  })
+
+  it('matches desktop visibility by hiding blank, archived, and subagent sessions', () => {
+    const visible = visibleTaskSessions(
+      [
+        { sessionId: 'started', updatedAt: 5, running: false, blank: false, lastSeq: 1 },
+        { sessionId: 'blank', updatedAt: 4, running: false, blank: true, lastSeq: -1 },
+        { sessionId: 'archived', updatedAt: 3, running: false, blank: false, lastSeq: 2 },
+        { sessionId: 'child', updatedAt: 2, running: false, blank: false, origin: 'subagent', lastSeq: 3 },
+      ],
+      ['archived'],
+    )
+    expect(visible.map(session => session.sessionId)).toEqual(['started'])
+  })
+
+  it('reuses only an active workspace-owned blank session', () => {
+    const sessions = [
+      { sessionId: 'archived', workspaceId: 'ws', updatedAt: 5, running: false, blank: true, lastSeq: -1 },
+      { sessionId: 'other', workspaceId: 'other', updatedAt: 4, running: false, blank: true, lastSeq: -1 },
+      { sessionId: 'reusable', workspaceId: 'ws', updatedAt: 3, running: false, blank: true, lastSeq: -1 },
+      { sessionId: 'started', workspaceId: 'ws', updatedAt: 2, running: false, blank: false, lastSeq: 4 },
+    ]
+    expect(reusableBlankSession(sessions, 'ws', ['archived'])?.sessionId).toBe('reusable')
   })
 })

@@ -1,4 +1,6 @@
 import type {
+  AgentPresetOption,
+  AgentPresetSelectInput,
   ApprovalDecision,
   HostDescriptor,
   PromptInput,
@@ -7,8 +9,11 @@ import type {
   SessionEventView,
   SessionHistoryPage,
   SessionHistoryQuery,
+  SessionModels,
+  SessionModelSelectInput,
   SessionSummary,
   WorkspaceCreateInput,
+  WorkspaceListResult,
   WorkspaceSummary,
 } from '@dsh-remote/domain'
 import type { EventId, HostId } from '@dsh-remote/protocol'
@@ -130,7 +135,7 @@ export class DeepSeekHarnessAdapter {
     }
   }
 
-  async workspaceList(): Promise<WorkspaceSummary[]> {
+  async workspaceList(): Promise<WorkspaceListResult> {
     const value = await this.call<{
       items: Array<{
         workspaceId: string
@@ -140,16 +145,20 @@ export class DeepSeekHarnessAdapter {
         createdAt: string
         updatedAt: string
       }>
+      archivedSessionIds: string[]
     }>('workspace.list', {})
 
-    return value.items.map(workspace => ({
-      workspaceId: workspace.workspaceId,
-      path: workspace.path,
-      title: workspace.title,
-      sessionIds: workspace.sessionIds,
-      createdAt: workspace.createdAt,
-      updatedAt: workspace.updatedAt,
-    }))
+    return {
+      items: value.items.map(workspace => ({
+        workspaceId: workspace.workspaceId,
+        path: workspace.path,
+        title: workspace.title,
+        sessionIds: workspace.sessionIds,
+        createdAt: workspace.createdAt,
+        updatedAt: workspace.updatedAt,
+      })),
+      archivedSessionIds: value.archivedSessionIds,
+    }
   }
 
   async workspaceCreate(input: WorkspaceCreateInput): Promise<{ workspace: WorkspaceSummary; created: boolean }> {
@@ -188,6 +197,7 @@ export class DeepSeekHarnessAdapter {
           blank: boolean
           cwd?: string
           agentPreset?: string
+          origin?: 'subagent'
           projections?: {
             asOfSeq: number
             values: Record<string, unknown>
@@ -215,6 +225,7 @@ export class DeepSeekHarnessAdapter {
         ...(typeof title === 'string' && { title }),
         ...(item.cwd !== undefined && { cwd: item.cwd }),
         ...(item.agentPreset !== undefined && { agentPreset: item.agentPreset }),
+        ...(item.origin !== undefined && { origin: item.origin }),
       }
     })
   }
@@ -237,6 +248,72 @@ export class DeepSeekHarnessAdapter {
       ...(input.agentPreset !== undefined && { agentPreset: input.agentPreset }),
     })
     return value.sessionId
+  }
+
+  async agentPresetList(): Promise<AgentPresetOption[]> {
+    const value = await this.call<{
+      presets: Array<{
+        id: string
+        trust: 'system' | 'user'
+        isDefault: boolean
+        name?: string
+        description?: string
+        broken?: string
+      }>
+    }>('agentPreset.list', {})
+    return value.presets.map(preset => ({
+      id: preset.id,
+      trust: preset.trust,
+      isDefault: preset.isDefault,
+      ...(preset.name !== undefined && { name: preset.name }),
+      ...(preset.description !== undefined && { description: preset.description }),
+      ...(preset.broken !== undefined && { broken: preset.broken }),
+    }))
+  }
+
+  async agentPresetSelect(input: AgentPresetSelectInput): Promise<{ agentPreset: string }> {
+    return this.call('agentPreset.select', input)
+  }
+
+  async sessionModels(sessionId: string): Promise<SessionModels> {
+    const value = await this.call<SessionModels>('session.models', { sessionId })
+    return {
+      current: {
+        provider: value.current.provider,
+        model: value.current.model,
+        ...(value.current.reasoningEffort !== undefined && { reasoningEffort: value.current.reasoningEffort }),
+      },
+      routable: value.routable,
+      groups: value.groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        models: group.models.map(model => ({
+          id: model.id,
+          name: model.name,
+          ...(model.description !== undefined && { description: model.description }),
+          ...(model.reasoning !== undefined && {
+            reasoning: {
+              efforts: model.reasoning.efforts.map(effort => ({
+                id: effort.id,
+                name: effort.name,
+                ...(effort.description !== undefined && { description: effort.description }),
+              })),
+              ...(model.reasoning.defaultEffort !== undefined && { defaultEffort: model.reasoning.defaultEffort }),
+            },
+          }),
+        })),
+      })),
+      failures: value.failures.map(failure => ({ ...failure })),
+    }
+  }
+
+  async sessionSelectModel(input: SessionModelSelectInput): Promise<{ selected: SessionModels['current'] }> {
+    return this.call('session.selectModel', {
+      sessionId: input.sessionId,
+      provider: input.provider,
+      model: input.model,
+      ...(input.reasoningEffort !== undefined && { reasoningEffort: input.reasoningEffort }),
+    })
   }
 
   async sessionHistory(query: SessionHistoryQuery): Promise<SessionHistoryPage> {

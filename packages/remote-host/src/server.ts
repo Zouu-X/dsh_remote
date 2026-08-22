@@ -12,12 +12,14 @@ import {
   authorizeRemoteMethod,
 } from '@dsh-remote/auth-core'
 import type {
+  AgentPresetSelectInput,
   ApprovalDecision,
   HostDescriptor,
   PromptInput,
   QuestionDecision,
   SessionCreateInput,
   SessionHistoryQuery,
+  SessionModelSelectInput,
   WorkspaceCreateInput,
 } from '@dsh-remote/domain'
 import {
@@ -40,6 +42,8 @@ import { loopbackPrincipal } from './principal.js'
 const IDEMPOTENT_REMOTE_METHODS = new Set([
   'workspace.create',
   'session.create',
+  'agent-preset.select',
+  'session.select-model',
   'session.prompt',
   'session.updateQueue',
   'session.cancel',
@@ -310,7 +314,7 @@ export class RemoteHostServer {
         return value
       }
       case 'workspace.list':
-        return { items: await this.adapter.workspaceList() }
+        return await this.adapter.workspaceList()
       case 'workspace.create':
         return await this.adapter.workspaceCreate(payload as WorkspaceCreateInput)
       case 'session.list':
@@ -319,8 +323,16 @@ export class RemoteHostServer {
         return await this.adapter.sessionSearch((payload as { query: string }).query)
       case 'session.create':
         return { sessionId: await this.adapter.sessionCreate(payload as SessionCreateInput) }
+      case 'agent-preset.list':
+        return { items: await this.adapter.agentPresetList() }
+      case 'agent-preset.select':
+        return await this.adapter.agentPresetSelect(payload as AgentPresetSelectInput)
       case 'session.history':
         return await this.adapter.sessionHistory(payload as SessionHistoryQuery)
+      case 'session.models':
+        return await this.adapter.sessionModels((payload as { sessionId: string }).sessionId)
+      case 'session.select-model':
+        return await this.adapter.sessionSelectModel(payload as SessionModelSelectInput)
       case 'session.prompt':
         await this.adapter.sessionPrompt(payload as PromptInput)
         return { accepted: true }

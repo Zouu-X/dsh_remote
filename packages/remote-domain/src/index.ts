@@ -32,6 +32,11 @@ export interface WorkspaceSummary {
   updatedAt: string
 }
 
+export interface WorkspaceListResult {
+  items: WorkspaceSummary[]
+  archivedSessionIds: SessionId[]
+}
+
 export interface SessionSummary {
   sessionId: SessionId
   title?: string
@@ -41,6 +46,7 @@ export interface SessionSummary {
   blank: boolean
   updatedAt: number
   agentPreset?: string
+  origin?: 'subagent'
   lastSeq: number
 }
 
@@ -90,6 +96,59 @@ export interface SessionCreateInput {
   workspaceId?: string
   cwd?: string
   agentPreset?: string
+}
+
+export interface AgentPresetOption {
+  id: string
+  trust: 'system' | 'user'
+  isDefault: boolean
+  name?: string
+  description?: string
+  broken?: string
+}
+
+export interface AgentPresetSelectInput {
+  sessionId: SessionId
+  agentPreset: string
+}
+
+export interface ModelSelection {
+  provider: string
+  model: string
+  reasoningEffort?: string
+}
+
+export interface ModelReasoningEffort {
+  id: string
+  name: string
+  description?: string
+}
+
+export interface ModelCatalogModel {
+  id: string
+  name: string
+  description?: string
+  reasoning?: {
+    efforts: ModelReasoningEffort[]
+    defaultEffort?: string
+  }
+}
+
+export interface ModelProviderGroup {
+  id: string
+  name: string
+  models: ModelCatalogModel[]
+}
+
+export interface SessionModels {
+  current: ModelSelection
+  routable: boolean
+  groups: ModelProviderGroup[]
+  failures: Array<{ id: string; name: string; message: string }>
+}
+
+export interface SessionModelSelectInput extends ModelSelection {
+  sessionId: SessionId
 }
 
 export interface WorkspaceCreateInput {
@@ -155,12 +214,16 @@ export interface SessionSearchItem {
 
 export interface RemoteApiMap {
   'host.describe': { payload: {}; result: HostDescriptor }
-  'workspace.list': { payload: {}; result: { items: WorkspaceSummary[] } }
+  'workspace.list': { payload: {}; result: WorkspaceListResult }
   'workspace.create': { payload: WorkspaceCreateInput; result: { workspace: WorkspaceSummary; created: boolean } }
   'session.list': { payload: {}; result: { items: SessionSummary[] } }
   'session.search': { payload: { query: string }; result: { items: SessionSearchItem[]; hasMore: boolean } }
   'session.create': { payload: SessionCreateInput; result: { sessionId: SessionId } }
+  'agent-preset.list': { payload: {}; result: { items: AgentPresetOption[] } }
+  'agent-preset.select': { payload: AgentPresetSelectInput; result: { agentPreset: string } }
   'session.history': { payload: SessionHistoryQuery; result: SessionHistoryPage }
+  'session.models': { payload: { sessionId: SessionId }; result: SessionModels }
+  'session.select-model': { payload: SessionModelSelectInput; result: { selected: ModelSelection } }
   'session.prompt': { payload: PromptInput; result: PromptResult }
   'approval.respond': { payload: ApprovalDecision; result: { accepted: boolean } }
   'question.respond': { payload: QuestionDecision; result: { accepted: boolean } }
@@ -198,4 +261,33 @@ export function groupSessionsByWorkspace(
     if (b.workspaceId === null) return -1
     return a.title.localeCompare(b.title)
   })
+}
+
+/** Matches the Harness browser's global list visibility rules for mobile task surfaces. */
+export function visibleTaskSessions(
+  sessions: SessionSummary[],
+  archivedSessionIds: readonly SessionId[],
+): SessionSummary[] {
+  const archived = new Set(archivedSessionIds)
+  return sessions.filter(session => (
+    session.blank === false
+    && session.origin !== 'subagent'
+    && archived.has(session.sessionId) === false
+  ))
+}
+
+/** Resolves the newest reusable blank session from the caller's recency-ordered list. */
+export function reusableBlankSession(
+  sessions: SessionSummary[],
+  workspaceId: string,
+  archivedSessionIds: readonly SessionId[],
+): SessionSummary | undefined {
+  const archived = new Set(archivedSessionIds)
+  return sessions.find(session => (
+    session.workspaceId === workspaceId
+    && session.blank
+    && !session.running
+    && session.origin !== 'subagent'
+    && archived.has(session.sessionId) === false
+  ))
 }
